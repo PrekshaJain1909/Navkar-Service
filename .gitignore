@@ -1,0 +1,11 @@
+# Node
+node_modules/
+.env
+
+# Next.js
+.next/
+out/
+
+# System
+.DS_Store
+Thumbs.db

@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "mongoose": "^8.17.1",
+    "next-auth": "^4.24.11",
+    "react-hot-toast": "^2.5.2",
+    "sweetalert2": "^11.22.3",
+    "sweetalert2-react-content": "^5.1.0"
+  }
+}
