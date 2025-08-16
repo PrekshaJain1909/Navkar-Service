@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
     const { username, password } = await request.json()
 
     // Simple demo authentication
-    if (username === "admin" && password === "password") {
+    if (username === "Ashish" && password === "Ashish123") {
       const response = NextResponse.json({ success: true })
 
       // Set a simple session cookie

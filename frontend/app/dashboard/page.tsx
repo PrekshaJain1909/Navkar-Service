@@ -82,7 +82,7 @@ export default function Dashboard() {
           ...payment,
           dueAmount: payment.dueAmount || 0,
           date: payment.date ? formatDate(payment.date) : "",
-          id: payment.id || Math.random().toString(36).substring(2, 9) // Fallback unique ID
+          id: payment.id || Math.random().toString(36).substring(2, 9)
         }))
       );
     } catch (error: any) {
@@ -95,6 +95,49 @@ export default function Dashboard() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const resetTotal = async () => {
+    const confirmReset = await Swal.fire({
+      ...swalBaseOptions,
+      title: "Reset Total?",
+      text: "This will set the total collected amount back to 0.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, Reset",
+      cancelButtonText: "Cancel",
+    });
+
+    if (confirmReset.isConfirmed) {
+      try {
+        const response = await fetch("https://navkar-service-2.onrender.com/api/reset-total", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        
+        if (!response.ok) throw new Error("Reset request failed");
+        
+        const data = await response.json();
+
+        Swal.fire({
+          ...swalBaseOptions,
+          icon: "success",
+          title: "Reset Successful",
+          text: "Total collected amount has been reset to 0.",
+        });
+        fetchDashboardData();
+      } catch (error) {
+        console.error("Reset failed:", error);
+        Swal.fire({
+          ...swalBaseOptions,
+          icon: "error",
+          title: "Reset Failed",
+          text: "Something went wrong while resetting the total.",
+        });
+      }
     }
   };
 
@@ -226,7 +269,7 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Recent Payments - Fixed key prop here */}
+        {/* Recent Payments */}
         <Card className="rounded-xl shadow-md bg-white">
           <CardHeader>
             <CardTitle className="text-gray-800">Recent Payments</CardTitle>
@@ -245,7 +288,7 @@ export default function Dashboard() {
               <div className="divide-y divide-gray-100">
                 {recentPayments.map((payment) => (
                   <div
-                    key={payment.id} // Now guaranteed to be unique
+                    key={payment.id}
                     className={`flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 transition-colors hover:bg-gray-100`}
                   >
                     <div className="flex items-center space-x-4 mb-2 sm:mb-0">
@@ -300,7 +343,7 @@ export default function Dashboard() {
                 { icon: <AlertCircle className="w-4 h-4 mr-2" />, label: "Send Reminders" }
               ].map((action) => (
                 <Button
-                  key={action.label} // Using label as key since it's unique
+                  key={action.label}
                   className="w-full justify-start"
                   variant="outline"
                   onClick={() =>
@@ -316,6 +359,14 @@ export default function Dashboard() {
                   {action.label}
                 </Button>
               ))}
+              <Button
+                className="w-full justify-start"
+                variant="destructive"
+                onClick={resetTotal}
+              >
+                <DollarSign className="w-4 h-4 mr-2" />
+                Reset Total Collected
+              </Button>
             </CardContent>
           </Card>
 
