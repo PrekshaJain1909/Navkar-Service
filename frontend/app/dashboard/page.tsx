@@ -65,7 +65,7 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/dashboard");
+      const response = await fetch("https://navkar-service-2.onrender.com/api/dashboard");
       if (!response.ok) throw new Error("Failed to fetch dashboard data");
       
       const data = await response.json();
@@ -111,7 +111,7 @@ export default function Dashboard() {
 
     if (confirmExport.isConfirmed) {
       try {
-        const response = await fetch("http://localhost:5000/api/students/export");
+        const response = await fetch("https://navkar-service-2.onrender.com/api/students/export");
         if (!response.ok) throw new Error("Export request failed");
 
         const blob = await response.blob();
