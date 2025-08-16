@@ -111,7 +111,7 @@ export default function Dashboard() {
 
     if (confirmReset.isConfirmed) {
       try {
-        const response = await fetch("https://navkar-service-2.onrender.com/api/reset-total", {
+        const response = await fetch("https://navkar-service-2.onrender.com/reset-total", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
