@@ -35,7 +35,7 @@ export default function PaymentTracker() {
         setError(null);
         toast.loading("Loading students...");
 
-        const res = await fetch("http://localhost:5000/api/students");
+        const res = await fetch("https://navkar-service-2.onrender.com/api/students");
         if (!res.ok) throw new Error("Failed to fetch students");
         const data = await res.json();
 

@@ -51,7 +51,7 @@ export default function PaymentsPage() {
     setIsLoading(true)
     setError(null)
     try {
-      const response = await fetch("http://localhost:5000/api/students")
+      const response = await fetch("https://navkar-service-2.onrender.com/api/students")
       if (!response.ok) throw new Error(`Server error ${response.status}`)
       const data: Student[] = await response.json()
       setStudents(data)
@@ -92,7 +92,7 @@ export default function PaymentsPage() {
     setIsSubmittingPayment(true)
     try {
       const res = await fetch(
-        `http://localhost:5000/api/payments/${recordPaymentStudent._id}/pay`,
+        `https://navkar-service-2.onrender.com/api/payments/${recordPaymentStudent._id}/pay`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

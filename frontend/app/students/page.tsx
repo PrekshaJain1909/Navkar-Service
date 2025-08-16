@@ -96,7 +96,7 @@ function PaymentDialog({
     
     try {
       const res = await fetch(
-        `http://localhost:5000/api/payments/${student._id}/pay`,
+        `https://navkar-service-2.onrender.com/api/payments/${student._id}/pay`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -204,7 +204,7 @@ export default function StudentsPage() {
   const fetchStudents = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("http://localhost:5000/api/students");
+      const response = await fetch("https://navkar-service-2.onrender.com/api/students");
       if (response.ok) {
         const data = await response.json();
         setStudents(data);

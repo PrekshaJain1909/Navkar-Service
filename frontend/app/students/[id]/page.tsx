@@ -45,7 +45,7 @@ export default function StudentDetailsPage() {
 
   const fetchStudent = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/students/${params.id}`);
+      const res = await fetch(`https://navkar-service-2.onrender.com/api/students/${params.id}`);
       if (!res.ok) throw new Error("Failed to fetch student");
       const data = await res.json();
       setStudent(data);
@@ -69,7 +69,7 @@ export default function StudentDetailsPage() {
     if (!result.isConfirmed) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/students/${params.id}`, {
+      const res = await fetch(`https://navkar-service-2.onrender.com/api/students/${params.id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Delete failed");
@@ -254,7 +254,7 @@ function EditStudentDialog({
   const handleSave = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/students/${student._id}`, {
+      const res = await fetch(`https://navkar-service-2.onrender.com/api/students/${student._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -440,7 +440,7 @@ function PaymentDialog({
 
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/payments/${student._id}/pay`, {
+      const res = await fetch(`https://navkar-service-2.onrender.com/api/payments/${student._id}/pay`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -43,7 +43,7 @@ export default function ReportsPage() {
   const fetchReport = async () => {
     setLoadingReport(true);
     try {
-      const res = await fetch("http://localhost:5000/api/reports");
+      const res = await fetch("https://navkar-service-2.onrender.com/api/reports");
       if (!res.ok) throw new Error("Failed to load report");
       const data = await res.json();
       setReportData(data);

@@ -122,7 +122,7 @@ export default function AddStudentDialog({
         extraPaid: Number(formData.extraPaid) || 0,
       };
 
-      const response = await fetch("http://localhost:5000/api/students", {
+      const response = await fetch("https://navkar-service-2.onrender.com/api/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
