@@ -3,7 +3,7 @@
 **A smart solution for school bus fee collection and automated reminders**  
 *Built with care for Chacha's bus service*
 
-![Project Screenshot](./frontend/public/Screenshot 2025-08-21 041649.png)
+![Project Screenshot](./frontend/public/ss1.png)
 <!-- Replace with actual screenshot path -->
 
 ---
