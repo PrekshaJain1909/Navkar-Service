@@ -41,15 +41,15 @@ const swalBaseOptions = {
 };
 
 const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
   }).format(amount);
 };
 
 const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('en-IN');
+  return new Date(dateString).toLocaleDateString("en-IN");
 };
 
 export default function Dashboard() {
@@ -61,7 +61,6 @@ export default function Dashboard() {
     thisMonthCollection: 0,
   });
   const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   const handleCardNavigation = (path: string) => {
     router.push(path);
@@ -86,9 +85,9 @@ export default function Dashboard() {
         return;
       }
       if (!response.ok) throw new Error("Failed to fetch dashboard data");
-      
+
       const data = await response.json();
-      
+
       setStats({
         totalStudents: data.stats.totalStudents || 0,
         totalFeesCollected: data.stats.totalFeesCollected || 0,
@@ -102,7 +101,7 @@ export default function Dashboard() {
           studentId: String(payment.studentId || ""),
           dueAmount: payment.dueAmount || 0,
           date: payment.date ? formatDate(payment.date) : "",
-          id: String(payment.id || `${payment.studentId || "payment"}-${payment.date || Date.now()}`)
+          id: String(payment.id || `${payment.studentId || "payment"}-${payment.date || Date.now()}`),
         }))
       );
     } catch (error: any) {
@@ -113,8 +112,44 @@ export default function Dashboard() {
         title: "Oops...",
         text: "Unable to load dashboard data. Please try again later!",
       });
-    } finally {
-      setIsLoading(false);
+    }
+  };
+
+  const resetTotal = async () => {
+    const confirmReset = await Swal.fire({
+      ...swalBaseOptions,
+      title: "Reset Total?",
+      text: "This will set the total collected amount back to 0.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, Reset",
+      cancelButtonText: "Cancel",
+    });
+
+    if (confirmReset.isConfirmed) {
+      try {
+        const response = await authFetch("/api/payments/reset-total", {
+          method: "POST",
+        });
+
+        if (!response.ok) throw new Error("Reset request failed");
+
+        Swal.fire({
+          ...swalBaseOptions,
+          icon: "success",
+          title: "Reset Successful",
+          text: "Total collected amount has been reset to 0.",
+        });
+        fetchDashboardData();
+      } catch (error) {
+        console.error("Reset failed:", error);
+        Swal.fire({
+          ...swalBaseOptions,
+          icon: "error",
+          title: "Reset Failed",
+          text: "Something went wrong while resetting the total.",
+        });
+      }
     }
   };
 
@@ -140,10 +175,10 @@ export default function Dashboard() {
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `students-data-${new Date().toISOString().split('T')[0]}.xlsx`;
-        a.click();
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `students-data-${new Date().toISOString().split("T")[0]}.xlsx`;
+        anchor.click();
 
         Swal.fire({
           ...swalBaseOptions,
@@ -162,22 +197,17 @@ export default function Dashboard() {
       }
     }
   };
-  
+
   return (
     <DashboardLayout>
       <div className="space-y-6 bg-gray-50 min-h-screen p-4 sm:p-6 lg:p-8 rounded-lg">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 sm:p-6 rounded-xl shadow-sm gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-800">Dashboard</h1>
             <p className="text-gray-500">School Bus Fee Management Overview</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button 
-              onClick={exportData} 
-              variant="outline" 
-              className="hover:bg-gray-200"
-            >
+            <Button onClick={exportData} variant="outline" className="hover:bg-gray-200">
               <Download className="w-4 h-4 mr-2" />
               Export Data
             </Button>
@@ -185,7 +215,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card
             className="rounded-xl shadow-md hover:shadow-lg transition-shadow bg-white cursor-pointer"
@@ -195,15 +224,11 @@ export default function Dashboard() {
             onKeyDown={(event) => onCardKeyDown(event, "/students")}
           >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                Total Students
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-500">Total Students</CardTitle>
               <Users className="h-6 w-6 text-gray-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-800">
-                {stats.totalStudents}
-              </div>
+              <div className="text-2xl font-bold text-gray-800">{stats.totalStudents}</div>
               <p className="text-xs text-gray-500">Active students registered</p>
             </CardContent>
           </Card>
@@ -216,15 +241,11 @@ export default function Dashboard() {
             onKeyDown={(event) => onCardKeyDown(event, "/payments")}
           >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                Total Collected
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-500">Total Collected</CardTitle>
               <DollarSign className="h-6 w-6 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-800">
-                {formatCurrency(stats.totalFeesCollected)}
-              </div>
+              <div className="text-2xl font-bold text-gray-800">{formatCurrency(stats.totalFeesCollected)}</div>
               <p className="text-xs text-gray-500">All-time fee collection</p>
             </CardContent>
           </Card>
@@ -237,18 +258,12 @@ export default function Dashboard() {
             onKeyDown={(event) => onCardKeyDown(event, "/payments")}
           >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                Pending Dues
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-500">Pending Dues</CardTitle>
               <AlertCircle className="h-6 w-6 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-800">
-                {formatCurrency(stats.pendingDues)}
-              </div>
-              <p className="text-xs text-gray-500">
-                From {stats.totalStudents} students
-              </p>
+              <div className="text-2xl font-bold text-gray-800">{formatCurrency(stats.pendingDues)}</div>
+              <p className="text-xs text-gray-500">From {stats.totalStudents} students</p>
             </CardContent>
           </Card>
 
@@ -260,29 +275,22 @@ export default function Dashboard() {
             onKeyDown={(event) => onCardKeyDown(event, "/reports")}
           >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                This Month
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-500">This Month</CardTitle>
               <TrendingUp className="h-6 w-6 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-800">
-                {formatCurrency(stats.thisMonthCollection)}
-              </div>
+              <div className="text-2xl font-bold text-gray-800">{formatCurrency(stats.thisMonthCollection)}</div>
               <p className="text-xs text-gray-500">Current month collection</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Recent Payments - Fixed key prop here */}
         <Card className="rounded-xl shadow-md bg-white">
           <CardHeader>
             <CardTitle className="text-gray-800">Recent Payments</CardTitle>
             <CardDescription>
               {stats.pendingDues > 0 ? (
-                <span className="text-red-500">
-                  Total outstanding: {formatCurrency(stats.pendingDues)}
-                </span>
+                <span className="text-red-500">Total outstanding: {formatCurrency(stats.pendingDues)}</span>
               ) : (
                 <span className="text-green-500">All dues cleared</span>
               )}
@@ -296,7 +304,7 @@ export default function Dashboard() {
 
                   return (
                     <div
-                      key={payment.id} // Now guaranteed to be unique
+                      key={payment.id}
                       className={`flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 transition-colors hover:bg-gray-100 ${studentPath ? "cursor-pointer" : ""}`}
                       role={studentPath ? "button" : undefined}
                       tabIndex={studentPath ? 0 : undefined}
@@ -322,21 +330,11 @@ export default function Dashboard() {
                       </div>
                       <div className="text-left sm:text-right">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-gray-800">
-                            {formatCurrency(payment.amount)}
-                          </p>
-                          <Badge variant={payment.mode === "Cash" ? "secondary" : "default"}>
-                            {payment.mode}
-                          </Badge>
+                          <p className="font-medium text-gray-800">{formatCurrency(payment.amount)}</p>
+                          <Badge variant={payment.mode === "Cash" ? "secondary" : "default"}>{payment.mode}</Badge>
                         </div>
-                        <p className={`text-xs mt-1 ${
-                          payment.dueAmount > 0 ? 'text-red-500' : 'text-green-500'
-                        }`}>
-                          {payment.dueAmount > 0 ? (
-                            `Due: ${formatCurrency(payment.dueAmount)}`
-                          ) : (
-                            'No dues'
-                          )}
+                        <p className={`text-xs mt-1 ${payment.dueAmount > 0 ? "text-red-500" : "text-green-500"}`}>
+                          {payment.dueAmount > 0 ? `Due: ${formatCurrency(payment.dueAmount)}` : "No dues"}
                         </p>
                       </div>
                     </div>
@@ -344,14 +342,11 @@ export default function Dashboard() {
                 })}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                No recent payments found
-              </div>
+              <div className="text-center py-8 text-gray-500">No recent payments found</div>
             )}
           </CardContent>
         </Card>
 
-        {/* Quick Actions & Status */}
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="rounded-xl shadow-md bg-white">
             <CardHeader>
@@ -361,10 +356,10 @@ export default function Dashboard() {
               {[
                 { icon: <Plus className="w-4 h-4 mr-2" />, label: "Add New Student", path: "/students" },
                 { icon: <DollarSign className="w-4 h-4 mr-2" />, label: "Record Payment", path: "/payments" },
-                { icon: <AlertCircle className="w-4 h-4 mr-2" />, label: "Send Reminders", path: "/settings" }
+                { icon: <AlertCircle className="w-4 h-4 mr-2" />, label: "Send Reminders", path: "/settings" },
               ].map((action) => (
                 <Button
-                  key={action.label} // Using label as key since it's unique
+                  key={action.label}
                   className="w-full justify-start"
                   variant="outline"
                   onClick={() => handleCardNavigation(action.path)}
@@ -373,6 +368,10 @@ export default function Dashboard() {
                   {action.label}
                 </Button>
               ))}
+              <Button className="w-full justify-start" variant="destructive" onClick={resetTotal}>
+                <DollarSign className="w-4 h-4 mr-2" />
+                Reset Total Collected
+              </Button>
             </CardContent>
           </Card>
 
