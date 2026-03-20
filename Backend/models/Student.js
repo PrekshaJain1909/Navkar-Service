@@ -3,6 +3,12 @@ const mongoose = require("mongoose");
 // const recalculateDue = require("../utils/recalculateDue");
 
 const studentSchema = new mongoose.Schema({
+  owner: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+    index: true,
+  },
   name: { type: String, required: true },            // ✅ Required
   class: { type: String },                           // optional now
   schoolName: { type: String },                      // optional now
@@ -34,7 +40,7 @@ const studentSchema = new mongoose.Schema({
   lastPaymentDate: { type: Date },
   lastPaymentMode: { type: String, enum: ["Cash", "UPI", "Bank Transfer"], default: "Cash" },
   lastPaymentPeriod: { type: String },
-  paymentStatus: { type: String, enum: ["completed", "pending"], default: "pending" }
+  paymentStatus: { type: String, enum: ["completed", "partial", "pending"], default: "pending" }
 }, { timestamps: true });
 
 // Make sure due & extraPaid are not negative before save
@@ -65,7 +71,13 @@ studentSchema.pre("save", function(next) {
   // Make sure due & extraPaid are not negative before save
   if (this.dueAmount < 0) this.dueAmount = 0;
   if (this.extraPaid < 0) this.extraPaid = 0;
-  this.paymentStatus = this.dueAmount === 0 ? "completed" : "pending";
+  if (this.dueAmount === 0) {
+    this.paymentStatus = "completed";
+  } else if ((this.totalCollected || 0) > 0 || (this.paymentsReceived || []).length > 0) {
+    this.paymentStatus = "partial";
+  } else {
+    this.paymentStatus = "pending";
+  }
   next();
 });
 module.exports = mongoose.model("Student", studentSchema);

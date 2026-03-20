@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Swal from "sweetalert2";
+import { authFetch } from "@/lib/auth";
 
 interface Student {
   _id: string;
@@ -33,7 +34,17 @@ interface Student {
   lastPaymentDate?: string;
   lastPaymentMode?: string;
   lastPaymentPeriod?: string;
-  paymentStatus?: "completed" | "pending";
+  paymentStatus?: "completed" | "partial" | "pending";
+  paymentsReceived?: PaymentRecord[];
+}
+
+interface PaymentRecord {
+  _id?: string;
+  amount?: number;
+  date?: string;
+  mode?: string;
+  period?: string;
+  extraPaid?: number;
 }
 
 export default function StudentDetailsPage() {
@@ -43,9 +54,40 @@ export default function StudentDetailsPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
 
+  const getStatusMeta = (s: Student) => {
+    if (s.dueAmount <= 0 || s.paymentStatus === "completed") {
+      return {
+        label: "Completed",
+        className: "bg-green-100 text-green-800",
+      };
+    }
+
+    if (
+      s.paymentStatus === "partial" ||
+      (s.totalCollected || 0) > 0 ||
+      (s.paymentsReceived?.length || 0) > 0
+    ) {
+      return {
+        label: "Partial Paid",
+        className: "bg-amber-100 text-amber-800",
+      };
+    }
+
+    return {
+      label: "Pending",
+      className: "bg-red-100 text-red-800",
+    };
+  };
+
+  const paymentHistory = [...(student?.paymentsReceived || [])].sort((a, b) => {
+    const dateA = a.date ? new Date(a.date).getTime() : 0;
+    const dateB = b.date ? new Date(b.date).getTime() : 0;
+    return dateB - dateA;
+  });
+
   const fetchStudent = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/students/${params.id}`);
+      const res = await authFetch(`/api/students/${params.id}`);
       if (!res.ok) throw new Error("Failed to fetch student");
       const data = await res.json();
       setStudent(data);
@@ -69,7 +111,7 @@ export default function StudentDetailsPage() {
     if (!result.isConfirmed) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/students/${params.id}`, {
+      const res = await authFetch(`/api/students/${params.id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Delete failed");
@@ -84,7 +126,56 @@ export default function StudentDetailsPage() {
     fetchStudent();
   }, []);
 
+  const formatPaymentDate = (rawDate?: string) => {
+    if (!rawDate) return "-";
+    const date = new Date(rawDate);
+    if (Number.isNaN(date.getTime())) return "-";
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const csvSafe = (value: string | number) => {
+    const text = String(value ?? "").replace(/"/g, '""');
+    return `"${text}"`;
+  };
+
+  const handleDownloadPayments = () => {
+    if (!student || paymentHistory.length === 0) {
+      Swal.fire("No Payments", "No payment records found for this student.", "info");
+      return;
+    }
+
+    const header = ["Sr No", "Date", "Amount", "Mode", "Period", "Extra Paid"];
+    const rows = paymentHistory.map((payment, index) => [
+      index + 1,
+      formatPaymentDate(payment.date),
+      Number(payment.amount || 0).toFixed(2),
+      payment.mode || "Cash",
+      payment.period || "-",
+      Number(payment.extraPaid || 0).toFixed(2),
+    ]);
+
+    const csv = [header, ...rows]
+      .map((row) => row.map((value) => csvSafe(value)).join(","))
+      .join("\n");
+
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${student.name.replace(/\s+/g, "-").toLowerCase()}-payments.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
   if (!student) return <div className="p-6 text-center">Loading...</div>;
+
+  const paymentStatusMeta = getStatusMeta(student);
 
   return (
     <div className="p-6 min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
@@ -147,17 +238,56 @@ export default function StudentDetailsPage() {
           <InfoField 
             label="Payment Status" 
             value={
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                (student.dueAmount <= 0 || student.paymentStatus === "completed") 
-                  ? "bg-green-100 text-green-800" 
-                  : "bg-yellow-100 text-yellow-800"
-              }`}
-              >
-                {(student.dueAmount <= 0 || student.paymentStatus === "completed") ? "Completed" : "Pending"}
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${paymentStatusMeta.className}`}>
+                {paymentStatusMeta.label}
               </span>
             } 
           />
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-md p-6 mt-6 border border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pb-2 border-b">
+          <h2 className="text-xl font-semibold text-gray-700">Payment History</h2>
+          <Button
+            variant="secondary"
+            onClick={handleDownloadPayments}
+            className="rounded-full px-5"
+          >
+            Download CSV
+          </Button>
+        </div>
+
+        {paymentHistory.length === 0 ? (
+          <p className="text-sm text-gray-500">No payment records available yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left p-3 border-b">#</th>
+                  <th className="text-left p-3 border-b">Date</th>
+                  <th className="text-left p-3 border-b">Amount</th>
+                  <th className="text-left p-3 border-b">Mode</th>
+                  <th className="text-left p-3 border-b">Period</th>
+                  <th className="text-left p-3 border-b">Extra Paid</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paymentHistory.map((payment, index) => (
+                  <tr key={payment._id || `${payment.date}-${index}`} className="hover:bg-gray-50">
+                    <td className="p-3 border-b">{index + 1}</td>
+                    <td className="p-3 border-b">{formatPaymentDate(payment.date)}</td>
+                    <td className="p-3 border-b">₹{Number(payment.amount || 0).toLocaleString("en-IN")}</td>
+                    <td className="p-3 border-b">{payment.mode || "Cash"}</td>
+                    <td className="p-3 border-b">{payment.period || "-"}</td>
+                    <td className="p-3 border-b">₹{Number(payment.extraPaid || 0).toLocaleString("en-IN")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <EditStudentDialog 
@@ -224,7 +354,13 @@ function EditStudentDialog({
       const newDueAmount = Math.max(0, newMonthlyFee - (form.extraPaid || 0));
       
       newForm.dueAmount = newDueAmount;
-      newForm.paymentStatus = newDueAmount <= 0 ? 'completed' : 'pending';
+      if (newDueAmount <= 0) {
+        newForm.paymentStatus = "completed";
+      } else if ((form.totalCollected || 0) > 0 || (form.paymentsReceived?.length || 0) > 0) {
+        newForm.paymentStatus = "partial";
+      } else {
+        newForm.paymentStatus = "pending";
+      }
       newForm.totalDue = newDueAmount;
     }
     
@@ -234,7 +370,13 @@ function EditStudentDialog({
       const newExtraPaid = form.monthlyFee - newDueAmount;
       
       newForm.extraPaid = Math.max(0, newExtraPaid);
-      newForm.paymentStatus = newDueAmount <= 0 ? 'completed' : 'pending';
+      if (newDueAmount <= 0) {
+        newForm.paymentStatus = "completed";
+      } else if ((form.totalCollected || 0) > 0 || (form.paymentsReceived?.length || 0) > 0) {
+        newForm.paymentStatus = "partial";
+      } else {
+        newForm.paymentStatus = "pending";
+      }
       newForm.totalDue = newDueAmount;
     }
     
@@ -244,7 +386,13 @@ function EditStudentDialog({
       const newDueAmount = Math.max(0, form.monthlyFee - newExtraPaid);
       
       newForm.dueAmount = newDueAmount;
-      newForm.paymentStatus = newDueAmount <= 0 ? 'completed' : 'pending';
+      if (newDueAmount <= 0) {
+        newForm.paymentStatus = "completed";
+      } else if ((form.totalCollected || 0) > 0 || (form.paymentsReceived?.length || 0) > 0) {
+        newForm.paymentStatus = "partial";
+      } else {
+        newForm.paymentStatus = "pending";
+      }
       newForm.totalDue = newDueAmount;
     }
     
@@ -254,9 +402,8 @@ function EditStudentDialog({
   const handleSave = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/students/${student._id}`, {
+      const res = await authFetch(`/api/students/${student._id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
           dueAmount: form.dueAmount,
@@ -395,10 +542,11 @@ function EditStudentDialog({
             <Label>Payment Status</Label>
             <select
               value={form.paymentStatus || 'pending'}
-              onChange={(e) => handleChange('paymentStatus', e.target.value as "completed" | "pending")}
+              onChange={(e) => handleChange('paymentStatus', e.target.value as "completed" | "partial" | "pending")}
               className="w-full border rounded-md p-2"
             >
               <option value="pending">Pending</option>
+              <option value="partial">Partial Paid</option>
               <option value="completed">Completed</option>
             </select>
           </div>
@@ -440,9 +588,8 @@ function PaymentDialog({
 
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/payments/${student._id}/pay`, {
+      const res = await authFetch(`/api/payments/${student._id}/pay`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: Number(amount),
           mode,

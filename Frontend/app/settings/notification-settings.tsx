@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Bell, Mail, MessageSquare } from "lucide-react";
+import { authFetch } from "@/lib/auth";
 
 export default function NotificationSettings() {
   const [settings, setSettings] = useState({
@@ -26,7 +27,10 @@ export default function NotificationSettings() {
   useEffect(() => {
     async function fetchSettings() {
       try {
-        const res = await fetch("/api/settings"); // or `/settings` if calling Express directly
+        const res = await authFetch("/api/settings");
+        if (!res.ok) {
+          throw new Error(`Failed to load settings (${res.status})`);
+        }
         const data = await res.json();
         setSettings(data);
       } catch (err) {
@@ -41,11 +45,15 @@ export default function NotificationSettings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await authFetch("/api/settings", {
+        method: "PUT",
         body: JSON.stringify(settings),
       });
+
+      if (!res.ok) {
+        throw new Error(`Failed to save settings (${res.status})`);
+      }
+
       const data = await res.json();
       alert(data.message || "Notification settings saved successfully!");
     } catch (err) {
@@ -59,7 +67,12 @@ export default function NotificationSettings() {
   // Call test notification API
   const testNotification = async (type: "email" | "sms" | "whatsapp") => {
     try {
-      const res = await fetch(`/api/settings/test-${type}`, { method: "POST" });
+      const res = await authFetch(`/api/settings/test-${type}`, { method: "POST" });
+
+      if (!res.ok) {
+        throw new Error(`Failed to send test ${type} (${res.status})`);
+      }
+
       const data = await res.json();
       alert(data.message || `Test ${type} sent successfully!`);
     } catch {

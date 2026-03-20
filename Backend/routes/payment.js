@@ -8,12 +8,13 @@ router.post("/:id/pay", async (req, res) => {
   try {
     const { id } = req.params;
     const { amount, mode, period } = req.body;
+    const ownerId = req.user && req.user.sub;
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ message: "Invalid payment amount" });
     }
 
-    const student = await Student.findById(id);
+    const student = await Student.findOne({ _id: id, owner: ownerId });
     if (!student) return res.status(404).json({ message: "Student not found" });
 
     let paymentRemaining = amount;
@@ -35,10 +36,9 @@ router.post("/:id/pay", async (req, res) => {
       paymentRemaining = 0;
     }
 
-    // 3️⃣ Clamp & status
+    // 3️⃣ Clamp
     if (student.dueAmount < 0) student.dueAmount = 0;
     if (student.extraPaid < 0) student.extraPaid = 0;
-    student.paymentStatus = student.dueAmount === 0 ? "completed" : "pending";
 
     // 4️⃣ Audit info
     student.totalCollected = (student.totalCollected || 0) + amount;
@@ -55,12 +55,21 @@ router.post("/:id/pay", async (req, res) => {
       extraPaid: overPayment
     });
 
+    if (student.dueAmount === 0) {
+      student.paymentStatus = "completed";
+    } else {
+      student.paymentStatus = "partial";
+    }
+
     await student.save();
 
     await Stats.findOneAndUpdate(
-      {},
-      { $inc: { totalCollected: amount } },
-      { new: true, upsert: true }
+      { owner: ownerId },
+      {
+        $inc: { totalCollected: amount },
+        $setOnInsert: { owner: ownerId },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
     res.json({ message: "Payment recorded successfully", student });

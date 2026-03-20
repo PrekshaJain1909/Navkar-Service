@@ -5,10 +5,15 @@ const excel = require('exceljs');
 
 const router = express.Router();
 
+function getOwnerId(req) {
+  return req.user && req.user.sub;
+}
+
 // 📤 Export all students to Excel
 router.get('/export', async (req, res) => {
   try {
-    const students = await Student.find().lean();
+    const ownerId = getOwnerId(req);
+    const students = await Student.find({ owner: ownerId }).lean();
 
     const workbook = new excel.Workbook();
     const worksheet = workbook.addWorksheet('Students Data');
@@ -64,7 +69,13 @@ router.get('/export', async (req, res) => {
 // ➕ Create Student
 router.post("/", async (req, res) => {
   try {
-    const student = new Student(req.body);
+    const ownerId = getOwnerId(req);
+    const { owner: _, ...payload } = req.body || {};
+
+    const student = new Student({
+      ...payload,
+      owner: ownerId,
+    });
     recalculateDue(student); // set initial due according to monthlyFee & extraPaid
     await student.save();
     res.json(student);
@@ -76,7 +87,8 @@ router.post("/", async (req, res) => {
 // 📄 Get all students
 router.get("/", async (req, res) => {
   try {
-    const students = await Student.find();
+    const ownerId = getOwnerId(req);
+    const students = await Student.find({ owner: ownerId });
     res.json(students);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -86,10 +98,13 @@ router.get("/", async (req, res) => {
 // ✏️ Update a student (Edit Save)
 router.put("/:id", async (req, res) => {
   try {
-    let student = await Student.findById(req.params.id);
+    const ownerId = getOwnerId(req);
+    const { owner: _, ...payload } = req.body || {};
+
+    let student = await Student.findOne({ _id: req.params.id, owner: ownerId });
     if (!student) return res.status(404).json({ message: "Student not found" });
 
-    Object.assign(student, req.body); // merge changes
+    Object.assign(student, payload); // merge changes
     recalculateDue(student); // apply due/extraPaid rule
     await student.save();
 
@@ -103,7 +118,8 @@ router.put("/:id", async (req, res) => {
 // 📄 Get single student
 router.get("/:id", async (req, res) => {
   try {
-    const student = await Student.findById(req.params.id);
+    const ownerId = getOwnerId(req);
+    const student = await Student.findOne({ _id: req.params.id, owner: ownerId });
     if (!student) return res.status(404).json({ message: "Student not found" });
     res.json(student);
   } catch (error) {
@@ -114,7 +130,13 @@ router.get("/:id", async (req, res) => {
 // 🗑 Delete student
 router.delete("/:id", async (req, res) => {
   try {
-    await Student.findByIdAndDelete(req.params.id);
+    const ownerId = getOwnerId(req);
+    const deleted = await Student.findOneAndDelete({ _id: req.params.id, owner: ownerId });
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
     res.json({ message: "Student deleted" });
   } catch (err) {
     res.status(500).json({ message: err.message });

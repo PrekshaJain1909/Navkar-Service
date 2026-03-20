@@ -14,6 +14,7 @@ import { Search, DollarSign, Calendar, CreditCard } from "lucide-react"
 import DashboardLayout from "@/components/dashboard-layout"
 import AddStudentDialog from "../AddStudentDialog"
 import Swal from "sweetalert2"
+import { authFetch } from "@/lib/auth"
 
 interface Student {
   _id: string
@@ -24,7 +25,7 @@ interface Student {
   lastPaymentDate?: string | Date
   lastPaymentMode?: string
   lastPaymentPeriod?: string
-  paymentStatus?: "completed" | "pending"
+  paymentStatus?: "completed" | "partial" | "pending"
   totalCollected?: number
   totalDue?: number
 }
@@ -32,6 +33,7 @@ interface Student {
 export default function PaymentsPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "partial" | "pending">("all")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,7 +42,6 @@ export default function PaymentsPage() {
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().slice(0, 10))
   const [paymentMode, setPaymentMode] = useState<string>("Cash")
   const [paymentPeriod, setPaymentPeriod] = useState<string>("")
-  const [paymentStatus, setPaymentStatus] = useState<"completed" | "pending">("completed")
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false)
 
   useEffect(() => {
@@ -51,7 +52,7 @@ export default function PaymentsPage() {
     setIsLoading(true)
     setError(null)
     try {
-      const response = await fetch("http://localhost:5000/api/students")
+      const response = await authFetch("/api/students")
       if (!response.ok) throw new Error(`Server error ${response.status}`)
       const data: Student[] = await response.json()
       setStudents(data)
@@ -62,11 +63,16 @@ export default function PaymentsPage() {
     }
   }
 
-  const filteredStudents = students.filter(s =>
+  const searchFilteredStudents = students.filter(s =>
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (s.lastPaymentMode || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
     (s.lastPaymentPeriod || "").toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  const filteredStudents = searchFilteredStudents.filter((s) => {
+    if (statusFilter === "all") return true
+    return (s.paymentStatus || "pending") === statusFilter
+  })
 
   const totalCollected = students.reduce((sum, s) => sum + (s.totalCollected || 0), 0)
   const thisMonthPayments = students.filter(s => {
@@ -91,11 +97,10 @@ export default function PaymentsPage() {
 
     setIsSubmittingPayment(true)
     try {
-      const res = await fetch(
-        `http://localhost:5000/api/payments/${recordPaymentStudent._id}/pay`,
+      const res = await authFetch(
+        `/api/payments/${recordPaymentStudent._id}/pay`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             amount: paymentAmount,
             mode: paymentMode,
@@ -113,8 +118,6 @@ export default function PaymentsPage() {
       setPaymentDate(new Date().toISOString().slice(0, 10))
       setPaymentMode("Cash")
       setPaymentPeriod("")
-      setPaymentStatus("completed")
-
       Swal.fire({
         icon: "success",
         title: "Payment Recorded",
@@ -130,6 +133,18 @@ export default function PaymentsPage() {
     } finally {
       setIsSubmittingPayment(false)
     }
+  }
+
+  const formatPaymentStatus = (status?: Student["paymentStatus"]) => {
+    if (status === "completed") {
+      return { label: "Completed", className: "bg-green-100 text-green-800" }
+    }
+
+    if (status === "partial") {
+      return { label: "Partial Paid", className: "bg-amber-100 text-amber-800" }
+    }
+
+    return { label: "Pending", className: "bg-red-100 text-red-800" }
   }
 
   if (isLoading) {
@@ -201,6 +216,36 @@ export default function PaymentsPage() {
           />
         </div>
 
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={statusFilter === "all" ? "default" : "outline"}
+            onClick={() => setStatusFilter("all")}
+          >
+            All
+          </Button>
+          <Button
+            variant={statusFilter === "completed" ? "default" : "outline"}
+            onClick={() => setStatusFilter("completed")}
+            className={statusFilter === "completed" ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+          >
+            Completed
+          </Button>
+          <Button
+            variant={statusFilter === "partial" ? "default" : "outline"}
+            onClick={() => setStatusFilter("partial")}
+            className={statusFilter === "partial" ? "bg-amber-500 hover:bg-amber-600 text-white" : ""}
+          >
+            Partial Paid
+          </Button>
+          <Button
+            variant={statusFilter === "pending" ? "default" : "outline"}
+            onClick={() => setStatusFilter("pending")}
+            className={statusFilter === "pending" ? "bg-red-600 hover:bg-red-700 text-white" : ""}
+          >
+            Pending
+          </Button>
+        </div>
+
         {error && <div className="text-red-600 font-medium">{error}</div>}
 
         {/* Table */}
@@ -248,8 +293,8 @@ export default function PaymentsPage() {
                       </TableCell>
                       <TableCell>{s.lastPaymentPeriod || "-"}</TableCell>
                       <TableCell>
-                        <Badge variant={s.paymentStatus === "completed" ? "default" : "secondary"}>
-                          {s.paymentStatus || "pending"}
+                        <Badge variant="secondary" className={formatPaymentStatus(s.paymentStatus).className}>
+                          {formatPaymentStatus(s.paymentStatus).label}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -263,7 +308,6 @@ export default function PaymentsPage() {
                             setPaymentDate(new Date().toISOString().slice(0, 10))
                             setPaymentMode("Cash")
                             setPaymentPeriod("")
-                            setPaymentStatus("completed")
                           }}
                         >
                           Record Payment

@@ -1,95 +1,194 @@
-# 🚌 Bus Fee Manager
+# Bus Fee Manager
 
-**A smart solution for school bus fee collection and automated reminders**  
-*Built with care for Chacha's bus service*
+Bus fee tracking and reminders platform with a complete authentication flow.
 
-![Project Screenshot](/screenshot.png) <!-- Replace with actual screenshot path -->
+## Tech Stack
 
----
+- Frontend: React (Next.js App Router) + Tailwind CSS
+- Backend: Node.js + Express.js
+- Database: MongoDB + Mongoose
 
-## ✨ Features
+## Authentication Features
 
-- **Automated Payment Reminders**  
-  📧 Email | 📱 SMS | 💬 WhatsApp  
-  *(Cron-based scheduled notifications)*
+- User registration with name, email, and password
+- Email format validation on backend
+- Password hashing with bcrypt before save
+- Duplicate user prevention with unique email
+- Login with email/password and JWT issuance
+- JWT auth via HttpOnly cookie and Bearer token support
+- Protected API routes using auth middleware
+- Protected frontend pages via Next middleware
+- Logout endpoint that clears auth cookie
+- Forgot password flow with reset token + email link
+- Reset password endpoint with token validation
+- Password strength validation rules
 
-- **Student Management**  
-  📝 Add/Edit student details | 🏷️ Track fee payment history
+## Project Structure
 
-- **Real-time Dashboard**  
-  📊 Payment status overview | 📅 Due date tracking
+The project uses this structure:
 
-- **Customizable Templates**  
-  ✉️ Personalize notification messages
+```text
+Backend/
+  models/
+  routes/
+  controllers/
+  middleware/
 
-- **Multi-Device Support**  
-  💻 Desktop | 📱 Mobile-friendly interface
-
----
-
-## 🛠️ Tech Stack
-
-**Frontend:**  
-![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)  
-![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)  
-![Shadcn/ui](https://img.shields.io/badge/Shadcn/ui-Elegant_Components-blueviolet)  
-
-**Backend:**  
-![Node.js](https://img.shields.io/badge/Node.js-20-green?logo=node.js)  
-![Express](https://img.shields.io/badge/Express-4.17-lightgrey?logo=express)  
-![MongoDB](https://img.shields.io/badge/MongoDB-7.0-green?logo=mongodb)  
-
-**Notifications:**  
-📧 **Nodemailer** | 📱 **Twilio** | 💬 **WhatsApp Web API**
-
----
-
-## 🚀 Quick Start
-
-### 1️⃣ Clone the repository
-```bash
-git clone https://github.com/yourusername/bus-fee-manager.git
+Frontend/
+  components/
+  app/          (Next.js App Router pages)
 ```
-### 2️⃣ Install dependencies
+
+Note: Your request mentioned a pages folder. In this repository, frontend pages are implemented under Frontend/app, which is the Next.js App Router equivalent.
+
+## Setup Guide
+
+1. Install backend dependencies.
+
 ```bash
-cd bus-fee-manager
+cd Backend
 npm install
 ```
-### 3️⃣ Set up environment variables
-```bash
-Create a .env file in the root directory:
-.env
-MONGODB_URI=your_mongodb_connection_string
-TWILIO_SID=your_twilio_account_sid
-TWILIO_TOKEN=your_twilio_auth_token
+
+2. Create Backend/.env using Backend/.env.example as reference.
+
+Required variables for auth:
+
+```env
+PORT=5000
+MONGO_URI=mongodb://127.0.0.1:27017/chacha
+FRONTEND_URL=http://localhost:3000
+JWT_SECRET=replace-with-a-strong-random-secret
+NODE_ENV=development
 ```
-### 4️⃣ Run the development server
+
+Optional variables for forgot-password emails:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@example.com
+SMTP_PASS=your-app-password
+SMTP_FROM=your-email@example.com
+```
+
+3. Start backend server.
+
 ```bash
+cd Backend
+npm start
+```
+
+4. Install frontend dependencies.
+
+```bash
+cd Frontend
+npm install
+```
+
+5. Create Frontend/.env.local.
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:5000
+```
+
+6. Start frontend server.
+
+```bash
+cd Frontend
 npm run dev
 ```
-### 📂 Project Structure
+
+7. Open app at http://localhost:3000.
+
+## Security Notes
+
+- Passwords are hashed using bcrypt in the user model pre-save hook.
+- JWT is signed with JWT_SECRET and sent in an HttpOnly cookie.
+- Auth middleware protects backend business routes.
+- Frontend middleware blocks unauthenticated users from protected pages.
+- Never commit real secrets to version control.
+
+## Authentication API Endpoints
+
+Base URL: /api/auth
+
+- POST /signup
+  - Body: { name, email, password }
+  - Success: 201 Created, sets auth cookie, returns user + token
+
+- POST /login
+  - Body: { email, password }
+  - Success: 200 OK, sets auth cookie, returns user + token
+
+- POST /logout
+  - Body: none
+  - Success: 200 OK, clears auth cookie
+
+- GET /me
+  - Auth: required
+  - Success: 200 OK, returns current user profile
+
+- POST /change-password
+  - Auth: required
+  - Body: { currentPassword, newPassword }
+  - Success: 200 OK
+
+- POST /forgot-password
+  - Body: { email }
+  - Success: 200 OK (generic response to avoid account enumeration)
+
+- POST /reset-password
+  - Body: { token, newPassword }
+  - Success: 200 OK
+
+## Protected Backend Routes
+
+These routes require authentication via JWT middleware:
+
+- /api/students
+- /api/dashboard
+- /api/reports
+- /api/settings
+- /api/payments
+
+## Frontend Auth Pages
+
+- /signup
+- /login
+- /dashboard (protected)
+- /forgot-password
+- /reset-password
+
+## Legacy Ownership Migration
+
+If you had data before per-user isolation was added, use this one-time script to assign ownerless records to a specific user.
+
+Dry-run (safe preview):
+
 ```bash
-bus-fee-manager/
-├── Frontend/               # Frontend (Next.js + Shadcn/ui)
-├── Backend/               # Backend (Express + MongoDB)
-│   ├── models/           # Mongoose models
-│   ├── routes/           # API routes
-│   └── server.js/         # Business logic (notifications, payments)
-└── README.md             # This file
+cd Backend
+npm run migrate:ownership -- --email owner@example.com
 ```
-### 🤝 Contributing
-We welcome contributions!
-Fork the project
-Create your feature branch
+
+Apply student migration:
+
 ```bash
-git checkout -b feature/AmazingFeature
+cd Backend
+npm run migrate:ownership -- --email owner@example.com --apply
 ```
-Commit your changes
+
+Claim ownerless global settings/stats docs for a user (optional):
+
 ```bash
-git commit -m "Add some amazing feature"
+cd Backend
+npm run migrate:ownership -- --email owner@example.com --claim-settings --claim-stats --apply
 ```
-Push to your branch
+
+Limit student migration to selected IDs:
+
 ```bash
-git push origin feature/AmazingFeature
+cd Backend
+npm run migrate:ownership -- --email owner@example.com --student-ids 65f...,65e... --apply
 ```
-Open a Pull Request 🎉

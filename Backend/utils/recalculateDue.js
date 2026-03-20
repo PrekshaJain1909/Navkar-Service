@@ -16,7 +16,13 @@ function recalculateDue(student) {
   if (student.dueAmount < 0) student.dueAmount = 0;
   if (student.extraPaid < 0) student.extraPaid = 0;
 
-  student.paymentStatus = student.dueAmount === 0 ? "completed" : "pending";
+  if (student.dueAmount === 0) {
+    student.paymentStatus = "completed";
+  } else if ((student.totalCollected || 0) > 0 || (student.paymentsReceived || []).length > 0) {
+    student.paymentStatus = "partial";
+  } else {
+    student.paymentStatus = "pending";
+  }
   return student;
 }
 

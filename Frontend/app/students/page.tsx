@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/table";
 import { Search, Phone } from "lucide-react";
 import AddStudentDialog from "@/app/AddStudentDialog";
+import { authFetch } from "@/lib/auth";
 
 /* -------- Types -------- */
 interface PaymentRecord {
@@ -59,7 +60,7 @@ interface Student {
   lastPaymentDate?: string;
   lastPaymentMode?: string;
   lastPaymentPeriod?: string;
-  paymentStatus?: "completed" | "pending";
+  paymentStatus?: "completed" | "partial" | "pending";
 }
 
 /* -------- PaymentDialog -------- */
@@ -95,11 +96,10 @@ function PaymentDialog({
     setErrMsg("");
     
     try {
-      const res = await fetch(
-        `http://localhost:5000/api/payments/${student._id}/pay`,
+      const res = await authFetch(
+        `/api/payments/${student._id}/pay`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             amount: Number(amount),
             mode,
@@ -204,7 +204,7 @@ export default function StudentsPage() {
   const fetchStudents = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("http://localhost:5000/api/students");
+      const response = await authFetch("/api/students");
       if (response.ok) {
         const data = await response.json();
         setStudents(data);

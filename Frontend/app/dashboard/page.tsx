@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type KeyboardEvent } from "react";
+import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, DollarSign, AlertCircle, TrendingUp, Download, Plus } from "lucide-react";
 import DashboardLayout from "@/components/dashboard-layout";
 import AddStudentDialog from "../AddStudentDialog";
+import { authFetch } from "@/lib/auth";
 
 interface DashboardStats {
   totalStudents: number;
@@ -18,6 +20,7 @@ interface DashboardStats {
 
 interface RecentPayment {
   id: string;
+  studentId: string;
   studentName: string;
   amount: number;
   date: string;
@@ -50,6 +53,7 @@ const formatDate = (dateString: string) => {
 };
 
 export default function Dashboard() {
+  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats>({
     totalStudents: 0,
     totalFeesCollected: 0,
@@ -59,13 +63,28 @@ export default function Dashboard() {
   const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const handleCardNavigation = (path: string) => {
+    router.push(path);
+  };
+
+  const onCardKeyDown = (event: KeyboardEvent<HTMLElement>, path: string) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleCardNavigation(path);
+    }
+  };
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
 
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/dashboard");
+      const response = await authFetch("/api/dashboard");
+      if (response.status === 401) {
+        router.replace("/login");
+        return;
+      }
       if (!response.ok) throw new Error("Failed to fetch dashboard data");
       
       const data = await response.json();
@@ -80,9 +99,10 @@ export default function Dashboard() {
       setRecentPayments(
         data.recentPayments.map((payment: any) => ({
           ...payment,
+          studentId: String(payment.studentId || ""),
           dueAmount: payment.dueAmount || 0,
           date: payment.date ? formatDate(payment.date) : "",
-          id: payment.id || Math.random().toString(36).substring(2, 9) // Fallback unique ID
+          id: String(payment.id || `${payment.studentId || "payment"}-${payment.date || Date.now()}`)
         }))
       );
     } catch (error: any) {
@@ -111,7 +131,11 @@ export default function Dashboard() {
 
     if (confirmExport.isConfirmed) {
       try {
-        const response = await fetch("http://localhost:5000/api/students/export");
+        const response = await authFetch("/api/students/export");
+        if (response.status === 401) {
+          router.replace("/login");
+          return;
+        }
         if (!response.ok) throw new Error("Export request failed");
 
         const blob = await response.blob();
@@ -163,7 +187,13 @@ export default function Dashboard() {
 
         {/* Stats Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="rounded-xl shadow-md hover:shadow-lg transition-shadow bg-white">
+          <Card
+            className="rounded-xl shadow-md hover:shadow-lg transition-shadow bg-white cursor-pointer"
+            role="button"
+            tabIndex={0}
+            onClick={() => handleCardNavigation("/students")}
+            onKeyDown={(event) => onCardKeyDown(event, "/students")}
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-500">
                 Total Students
@@ -178,7 +208,13 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl shadow-md hover:shadow-lg transition-shadow bg-white">
+          <Card
+            className="rounded-xl shadow-md hover:shadow-lg transition-shadow bg-white cursor-pointer"
+            role="button"
+            tabIndex={0}
+            onClick={() => handleCardNavigation("/payments")}
+            onKeyDown={(event) => onCardKeyDown(event, "/payments")}
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-500">
                 Total Collected
@@ -193,7 +229,13 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl shadow-md hover:shadow-lg transition-shadow bg-white">
+          <Card
+            className="rounded-xl shadow-md hover:shadow-lg transition-shadow bg-white cursor-pointer"
+            role="button"
+            tabIndex={0}
+            onClick={() => handleCardNavigation("/payments")}
+            onKeyDown={(event) => onCardKeyDown(event, "/payments")}
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-500">
                 Pending Dues
@@ -210,7 +252,13 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl shadow-md hover:shadow-lg transition-shadow bg-white">
+          <Card
+            className="rounded-xl shadow-md hover:shadow-lg transition-shadow bg-white cursor-pointer"
+            role="button"
+            tabIndex={0}
+            onClick={() => handleCardNavigation("/reports")}
+            onKeyDown={(event) => onCardKeyDown(event, "/reports")}
+          >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-500">
                 This Month
@@ -243,41 +291,57 @@ export default function Dashboard() {
           <CardContent>
             {recentPayments.length > 0 ? (
               <div className="divide-y divide-gray-100">
-                {recentPayments.map((payment) => (
-                  <div
-                    key={payment.id} // Now guaranteed to be unique
-                    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 transition-colors hover:bg-gray-100`}
-                  >
-                    <div className="flex items-center space-x-4 mb-2 sm:mb-0">
-                      <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                        <DollarSign className="w-5 h-5 text-gray-600" />
+                {recentPayments.map((payment) => {
+                  const studentPath = payment.studentId ? `/students/${payment.studentId}` : "";
+
+                  return (
+                    <div
+                      key={payment.id} // Now guaranteed to be unique
+                      className={`flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 transition-colors hover:bg-gray-100 ${studentPath ? "cursor-pointer" : ""}`}
+                      role={studentPath ? "button" : undefined}
+                      tabIndex={studentPath ? 0 : undefined}
+                      onClick={() => {
+                        if (studentPath) {
+                          handleCardNavigation(studentPath);
+                        }
+                      }}
+                      onKeyDown={(event) => {
+                        if (studentPath) {
+                          onCardKeyDown(event, studentPath);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center space-x-4 mb-2 sm:mb-0">
+                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                          <DollarSign className="w-5 h-5 text-gray-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-800">{payment.studentName}</p>
+                          <p className="text-sm text-gray-500">{payment.date}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-800">{payment.studentName}</p>
-                        <p className="text-sm text-gray-500">{payment.date}</p>
-                      </div>
-                    </div>
-                    <div className="text-left sm:text-right">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-gray-800">
-                          {formatCurrency(payment.amount)}
+                      <div className="text-left sm:text-right">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-800">
+                            {formatCurrency(payment.amount)}
+                          </p>
+                          <Badge variant={payment.mode === "Cash" ? "secondary" : "default"}>
+                            {payment.mode}
+                          </Badge>
+                        </div>
+                        <p className={`text-xs mt-1 ${
+                          payment.dueAmount > 0 ? 'text-red-500' : 'text-green-500'
+                        }`}>
+                          {payment.dueAmount > 0 ? (
+                            `Due: ${formatCurrency(payment.dueAmount)}`
+                          ) : (
+                            'No dues'
+                          )}
                         </p>
-                        <Badge variant={payment.mode === "Cash" ? "secondary" : "default"}>
-                          {payment.mode}
-                        </Badge>
                       </div>
-                      <p className={`text-xs mt-1 ${
-                        payment.dueAmount > 0 ? 'text-red-500' : 'text-green-500'
-                      }`}>
-                        {payment.dueAmount > 0 ? (
-                          `Due: ${formatCurrency(payment.dueAmount)}`
-                        ) : (
-                          'No dues'
-                        )}
-                      </p>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
@@ -295,22 +359,15 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="space-y-2">
               {[
-                { icon: <Plus className="w-4 h-4 mr-2" />, label: "Add New Student" },
-                { icon: <DollarSign className="w-4 h-4 mr-2" />, label: "Record Payment" },
-                { icon: <AlertCircle className="w-4 h-4 mr-2" />, label: "Send Reminders" }
+                { icon: <Plus className="w-4 h-4 mr-2" />, label: "Add New Student", path: "/students" },
+                { icon: <DollarSign className="w-4 h-4 mr-2" />, label: "Record Payment", path: "/payments" },
+                { icon: <AlertCircle className="w-4 h-4 mr-2" />, label: "Send Reminders", path: "/settings" }
               ].map((action) => (
                 <Button
                   key={action.label} // Using label as key since it's unique
                   className="w-full justify-start"
                   variant="outline"
-                  onClick={() =>
-                    Swal.fire({
-                      ...swalBaseOptions,
-                      icon: "info",
-                      title: action.label,
-                      text: `You clicked on "${action.label}". Add your function here.`,
-                    })
-                  }
+                  onClick={() => handleCardNavigation(action.path)}
                 >
                   {action.icon}
                   {action.label}

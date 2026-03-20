@@ -18,6 +18,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { authFetch } from "@/lib/auth";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -38,9 +39,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const handleLogout = () => {
-    // Add logout logic here
-    router.push("/");
+  const handleLogout = async () => {
+    try {
+      await authFetch("/api/auth/logout", { method: "POST" });
+    } catch (error) {
+      console.error("Logout request failed:", error);
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
   };
 
   return (
@@ -49,14 +56,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <header className="bg-gradient-to-r from-gray-700 to-gray-600 text-gray-100 shadow-xl sticky top-0 z-50">
         <div className="flex items-center justify-between h-16 px-6 max-w-7xl mx-auto">
           {/* Logo and Title */}
-          <div className="flex items-center space-x-3">
+          <Link href="/dashboard" className="flex items-center space-x-3 hover:opacity-90 transition-opacity">
             <div className="w-10 h-10 bg-gray-400 rounded-lg flex items-center justify-center shadow-md">
               <Bus className="w-6 h-6 text-gray-700" />
             </div>
             <span className="text-2xl font-extrabold tracking-wide select-none">
               Navkar Service
             </span>
-          </div>
+          </Link>
 
           {/* Desktop Nav Links */}
           <nav className="hidden md:flex items-center space-x-2">

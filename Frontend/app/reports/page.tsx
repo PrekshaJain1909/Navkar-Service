@@ -30,20 +30,75 @@ import {
   Cell
 } from "recharts";
 import Swal from "sweetalert2";
+import { authFetch } from "@/lib/auth";
+
+type AnnualStatus = "Completed" | "Partial Paid" | "Pending" | "NA";
+
+interface AnnualRow {
+  id: string;
+  name: string;
+  class: string;
+  schoolName: string;
+  contactInfo: string;
+  monthlyFee: number;
+  activeMonths: number;
+  expectedAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+  status: AnnualStatus;
+}
+
+interface AnnualSummary {
+  totalExpected: number;
+  totalPaid: number;
+  totalDue: number;
+  completed: number;
+  partial: number;
+  pending: number;
+  na: number;
+}
 
 export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
   const [loadingReport, setLoadingReport] = useState(true);
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+  const [annualLoading, setAnnualLoading] = useState(false);
+  const [annualRows, setAnnualRows] = useState<AnnualRow[]>([]);
+  const [annualSummary, setAnnualSummary] = useState<AnnualSummary | null>(null);
+  const [annualStatusFilter, setAnnualStatusFilter] = useState<"All" | "Completed" | "Partial Paid" | "Pending">("All");
+
+  const monthOptions = [
+    { value: 1, label: "Jan" },
+    { value: 2, label: "Feb" },
+    { value: 3, label: "Mar" },
+    { value: 4, label: "Apr" },
+    { value: 5, label: "May" },
+    { value: 6, label: "Jun" },
+    { value: 7, label: "Jul" },
+    { value: 8, label: "Aug" },
+    { value: 9, label: "Sep" },
+    { value: 10, label: "Oct" },
+    { value: 11, label: "Nov" },
+    { value: 12, label: "Dec" },
+  ];
+
+  const yearOptions = Array.from({ length: 6 }, (_, index) => currentDate.getFullYear() - index);
 
   useEffect(() => {
     fetchReport();
   }, []);
 
+  useEffect(() => {
+    fetchAnnualTable();
+  }, [selectedYear]);
+
   const fetchReport = async () => {
     setLoadingReport(true);
     try {
-      const res = await fetch("http://localhost:5000/api/reports");
+      const res = await authFetch("/api/reports");
       if (!res.ok) throw new Error("Failed to load report");
       const data = await res.json();
       setReportData(data);
@@ -55,20 +110,97 @@ export default function ReportsPage() {
     }
   };
 
-  const exportReport = async (type: string) => {
+  const fetchAnnualTable = async () => {
+    setAnnualLoading(true);
+    try {
+      const res = await authFetch(`/api/reports/annual-table?year=${selectedYear}`);
+      if (!res.ok) throw new Error("Failed to load annual table");
+
+      const data = await res.json();
+      setAnnualRows(data.rows || []);
+      setAnnualSummary(data.summary || null);
+    } catch (error) {
+      setAnnualRows([]);
+      setAnnualSummary(null);
+      Swal.fire({
+        title: "Annual Data Error",
+        text: "Unable to load annual student table.",
+        icon: "error",
+        confirmButtonColor: "#d33"
+      });
+    } finally {
+      setAnnualLoading(false);
+    }
+  };
+
+  const exportMonthlyReport = async (format: "csv" | "xlsx") => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const res = await authFetch(
+        `/api/reports/monthly-export?month=${selectedMonth}&year=${selectedYear}&format=${format}`,
+        { method: "GET" }
+      );
+
+      if (!res.ok) throw new Error("Failed to export monthly report");
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `monthly-report-${selectedYear}-${String(selectedMonth).padStart(2, "0")}.${format}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+
       Swal.fire({
-        title: `${type} Report Exported`,
-        text: "Your report has been successfully generated and downloaded.",
+        title: `Monthly ${format.toUpperCase()} Exported`,
+        text: `Monthly student report downloaded as ${format.toUpperCase()}.`,
         icon: "success",
         confirmButtonColor: "#3085d6"
       });
     } catch (error) {
       Swal.fire({
         title: "Export Failed",
-        text: "Something went wrong while exporting the report.",
+        text: "Something went wrong while exporting the monthly report.",
+        icon: "error",
+        confirmButtonColor: "#d33"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const exportAnnualReport = async (format: "csv" | "xlsx") => {
+    setIsLoading(true);
+    try {
+      const res = await authFetch(
+        `/api/reports/annual-export?year=${selectedYear}&format=${format}`,
+        { method: "GET" }
+      );
+
+      if (!res.ok) throw new Error("Failed to export annual report");
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `annual-report-${selectedYear}.${format}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+
+      Swal.fire({
+        title: `Annual ${format.toUpperCase()} Exported`,
+        text: `Annual student report downloaded as ${format.toUpperCase()}.`,
+        icon: "success",
+        confirmButtonColor: "#3085d6"
+      });
+    } catch (error) {
+      Swal.fire({
+        title: "Export Failed",
+        text: "Something went wrong while exporting the annual report.",
         icon: "error",
         confirmButtonColor: "#d33"
       });
@@ -106,6 +238,18 @@ export default function ReportsPage() {
     thisMonthSummary
   } = reportData;
 
+  const getAnnualStatusClass = (status: AnnualStatus) => {
+    if (status === "Completed") return "bg-green-100 text-green-800";
+    if (status === "Partial Paid") return "bg-amber-100 text-amber-800";
+    if (status === "Pending") return "bg-red-100 text-red-800";
+    return "bg-slate-200 text-slate-700";
+  };
+
+  const filteredAnnualRows = annualRows.filter((row) => {
+    if (annualStatusFilter === "All") return true;
+    return row.status === annualStatusFilter;
+  });
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -120,21 +264,59 @@ export default function ReportsPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              {monthOptions.map((month) => (
+                <option key={month.value} value={month.value}>
+                  {month.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
             <Button
-              onClick={() => exportReport("Monthly")}
+              onClick={() => exportMonthlyReport("csv")}
               variant="outline"
               disabled={isLoading}
             >
               <Download className="w-4 h-4 mr-2" />
-              Export Monthly
+              Export Monthly CSV
             </Button>
             <Button
-              onClick={() => exportReport("Annual")}
+              onClick={() => exportMonthlyReport("xlsx")}
               variant="outline"
               disabled={isLoading}
             >
               <Download className="w-4 h-4 mr-2" />
-              Export Annual
+              Export Monthly Excel
+            </Button>
+            <Button
+              onClick={() => exportAnnualReport("csv")}
+              variant="outline"
+              disabled={isLoading}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export Annual CSV
+            </Button>
+            <Button
+              onClick={() => exportAnnualReport("xlsx")}
+              variant="outline"
+              disabled={isLoading}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export Annual Excel
             </Button>
           </div>
         </div>
@@ -390,6 +572,112 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Annual Student Report ({selectedYear})</CardTitle>
+            <CardDescription>
+              Yearly student-wise status and collection overview with filter controls
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {annualSummary && (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-4">
+                <div className="p-3 border rounded-lg">
+                  <p className="text-xs text-muted-foreground">Expected</p>
+                  <p className="text-lg font-semibold">₹{annualSummary.totalExpected.toLocaleString()}</p>
+                </div>
+                <div className="p-3 border rounded-lg">
+                  <p className="text-xs text-muted-foreground">Paid</p>
+                  <p className="text-lg font-semibold text-green-700">₹{annualSummary.totalPaid.toLocaleString()}</p>
+                </div>
+                <div className="p-3 border rounded-lg">
+                  <p className="text-xs text-muted-foreground">Due</p>
+                  <p className="text-lg font-semibold text-red-700">₹{annualSummary.totalDue.toLocaleString()}</p>
+                </div>
+                <div className="p-3 border rounded-lg">
+                  <p className="text-xs text-muted-foreground">Students</p>
+                  <p className="text-lg font-semibold">{annualRows.length}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Button
+                size="sm"
+                variant={annualStatusFilter === "All" ? "default" : "outline"}
+                onClick={() => setAnnualStatusFilter("All")}
+              >
+                All ({annualRows.length})
+              </Button>
+              <Button
+                size="sm"
+                variant={annualStatusFilter === "Completed" ? "default" : "outline"}
+                onClick={() => setAnnualStatusFilter("Completed")}
+              >
+                Completed ({annualSummary?.completed || 0})
+              </Button>
+              <Button
+                size="sm"
+                variant={annualStatusFilter === "Partial Paid" ? "default" : "outline"}
+                onClick={() => setAnnualStatusFilter("Partial Paid")}
+              >
+                Partial ({annualSummary?.partial || 0})
+              </Button>
+              <Button
+                size="sm"
+                variant={annualStatusFilter === "Pending" ? "default" : "outline"}
+                onClick={() => setAnnualStatusFilter("Pending")}
+              >
+                Pending ({annualSummary?.pending || 0})
+              </Button>
+            </div>
+
+            {annualLoading ? (
+              <div className="py-10 text-center text-muted-foreground">Loading annual table...</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left p-3 border-b">Student</th>
+                      <th className="text-left p-3 border-b">Class</th>
+                      <th className="text-left p-3 border-b">School</th>
+                      <th className="text-left p-3 border-b">Monthly Fee</th>
+                      <th className="text-left p-3 border-b">Active Months</th>
+                      <th className="text-left p-3 border-b">Expected</th>
+                      <th className="text-left p-3 border-b">Paid</th>
+                      <th className="text-left p-3 border-b">Due</th>
+                      <th className="text-left p-3 border-b">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAnnualRows.map((row) => (
+                      <tr key={row.id} className="hover:bg-gray-50">
+                        <td className="p-3 border-b font-medium">{row.name}</td>
+                        <td className="p-3 border-b">{row.class || "-"}</td>
+                        <td className="p-3 border-b">{row.schoolName || "-"}</td>
+                        <td className="p-3 border-b">₹{row.monthlyFee.toLocaleString()}</td>
+                        <td className="p-3 border-b">{row.activeMonths}</td>
+                        <td className="p-3 border-b">₹{row.expectedAmount.toLocaleString()}</td>
+                        <td className="p-3 border-b text-green-700">₹{row.paidAmount.toLocaleString()}</td>
+                        <td className="p-3 border-b text-red-700">₹{row.dueAmount.toLocaleString()}</td>
+                        <td className="p-3 border-b">
+                          <Badge variant="secondary" className={getAnnualStatusClass(row.status)}>
+                            {row.status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredAnnualRows.length === 0 && (
+                  <div className="text-center py-6 text-muted-foreground">No students found for selected filter.</div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );

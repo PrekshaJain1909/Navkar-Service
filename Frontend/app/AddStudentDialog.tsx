@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { authFetch } from "@/lib/auth";
 
 interface StudentFormData {
   name: string;
@@ -122,9 +123,8 @@ export default function AddStudentDialog({
         extraPaid: Number(formData.extraPaid) || 0,
       };
 
-      const response = await fetch("http://localhost:5000/api/students", {
+      const response = await authFetch("/api/students", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
