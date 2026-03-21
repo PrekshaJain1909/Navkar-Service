@@ -20,11 +20,32 @@ connectDB();
 const app = express();
 app.use(express.json());
 
-app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  credentials: true,
-}));
+const defaultOrigins = ["http://localhost:3000", "https://navkar-service.vercel.app"];
+const configuredOrigins = [
+  ...(process.env.FRONTEND_URLS || "").split(","),
+  process.env.FRONTEND_URL || "",
+]
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set([...defaultOrigins, ...configuredOrigins]);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow non-browser requests (curl/Postman/server-to-server) with no Origin header.
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.has(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+  })
+);
 
 // Public auth endpoints
 app.use("/api/auth", authRoutes);
