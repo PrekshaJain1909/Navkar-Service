@@ -8,7 +8,7 @@ services:
     autoDeploy: true
     envVars:
       - key: NEXT_PUBLIC_API_BASE_URL
-        sync: false
+        value: https://navkar-service.onrender.com
       - key: NODE_ENV
         value: production
 
