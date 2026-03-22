@@ -9,9 +9,9 @@ const rawApiBaseUrl =
   defaultApiBaseUrl;
 
 export const API_BASE_URL = rawApiBaseUrl.replace(/\/+$/, "");
-const AUTH_COOKIE_NAME = "auth_token";
+const AUTH_COOKIE_NAME = "auth_token_client";
 const TOKEN_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
-const AUTH_STORAGE_KEY = "auth_token";
+const AUTH_STORAGE_KEY = "auth_token_client";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";

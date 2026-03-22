@@ -18,7 +18,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import { authFetch, clearAuthToken } from "@/lib/auth";
+import { authFetch, clearAuthToken, getAuthToken } from "@/lib/auth";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -42,22 +42,53 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   useEffect(() => {
     let isMounted = true;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      controller.abort("session-check-timeout");
+    }, 6000);
 
     const verifySession = async () => {
+      const token = getAuthToken();
+      if (!token) {
+        clearAuthToken();
+        router.replace("/login");
+        return;
+      }
+
       try {
-        const response = await authFetch("/api/auth/me");
+        const response = await authFetch("/api/auth/me", { signal: controller.signal });
 
         if (!response.ok) {
+          try {
+            await authFetch("/api/auth/logout", { method: "POST" });
+          } catch (logoutError) {
+            console.error("Failed to clear server auth cookie:", logoutError);
+          }
           clearAuthToken();
           router.replace("/login");
           return;
         }
       } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
         console.error("Auth verification failed:", error);
+        try {
+          await authFetch("/api/auth/logout", { method: "POST" });
+        } catch (logoutError) {
+          console.error("Failed to clear server auth cookie:", logoutError);
+        }
         clearAuthToken();
         router.replace("/login");
         return;
       }
+
+      window.clearTimeout(timeoutId);
 
       if (isMounted) {
         setIsAuthChecking(false);
@@ -67,6 +98,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     verifySession();
 
     return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort("layout-unmounted");
       isMounted = false;
     };
   }, [router]);

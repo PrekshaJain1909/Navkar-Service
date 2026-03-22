@@ -19,7 +19,7 @@ const guestOnlyPaths = [
 
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  const token = request.cookies.get("auth_token")?.value;
+  const token = request.cookies.get("auth_token_client")?.value;
 
   if (pathname === "/") {
     const target = token ? "/dashboard" : "/login";
