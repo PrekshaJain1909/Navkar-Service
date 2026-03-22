@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
-import { authFetch, getApiMessage } from "@/lib/auth";
+import { authFetch, getApiMessage, setAuthToken } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -57,13 +57,23 @@ export default function SignupPage() {
       });
 
       if (!response.ok) {
-        setError(await getApiMessage(response, "Unable to create account"));
+        const message = await getApiMessage(response, "Unable to create account");
+        console.error("Signup failed:", { status: response.status, message });
+        setError(message);
         return;
       }
+
+      const data = await response.json();
+      if (data?.token) {
+        setAuthToken(data.token);
+      }
+
+      console.log("Signup successful. Redirecting to dashboard...");
 
       router.replace("/dashboard");
       router.refresh();
     } catch (requestError) {
+      console.error("Signup request error:", requestError);
       setError("Unable to create account right now. Please try again.");
     } finally {
       setIsLoading(false);

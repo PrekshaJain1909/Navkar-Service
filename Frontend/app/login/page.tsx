@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { authFetch, getApiMessage } from "@/lib/auth";
+import { authFetch, getApiMessage, setAuthToken } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,11 @@ export default function LoginPage() {
       if (!response.ok) {
         setError(await getApiMessage(response, "Invalid credentials"));
         return;
+      }
+
+      const data = await response.json();
+      if (data?.token) {
+        setAuthToken(data.token);
       }
 
       const nextPath = new URLSearchParams(window.location.search).get("next") || "/dashboard";

@@ -17,8 +17,8 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
-import { authFetch } from "@/lib/auth";
+import { useEffect, useState } from "react";
+import { authFetch, clearAuthToken } from "@/lib/auth";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -38,6 +38,38 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const verifySession = async () => {
+      try {
+        const response = await authFetch("/api/auth/me");
+
+        if (!response.ok) {
+          clearAuthToken();
+          router.replace("/login");
+          return;
+        }
+      } catch (error) {
+        console.error("Auth verification failed:", error);
+        clearAuthToken();
+        router.replace("/login");
+        return;
+      }
+
+      if (isMounted) {
+        setIsAuthChecking(false);
+      }
+    };
+
+    verifySession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
 
   const handleLogout = async () => {
     try {
@@ -45,10 +77,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     } catch (error) {
       console.error("Logout request failed:", error);
     } finally {
+      clearAuthToken();
       router.replace("/login");
       router.refresh();
     }
   };
+
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-100 via-gray-200 to-gray-300 flex items-center justify-center text-gray-700">
+        <div className="text-sm font-medium">Checking session...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-100 via-gray-200 to-gray-300 flex flex-col text-gray-800">
